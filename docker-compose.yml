@@ -1,0 +1,64 @@
+services:
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev
+    env_file: $API_ENV_FILE
+    volumes:
+      - ./api:/app
+    ports:
+      - "$API_PORT:5000"
+    depends_on: [redis,db]
+    command: ["python", "-m", "wsgiapi"]
+    links:
+      - "redis:$REDIS_HOST"
+      - "db:$DB_HOST"
+
+  redis:
+    image: "redis:7-alpine"
+    expose:
+      - 6379
+
+  db:
+    image: "postgres:16-bullseye"
+    volumes:
+      - ./data:/var/lib/postgresql/data
+    ports:
+      - 5433:5432
+
+  ui:
+    build:
+      context: ./catalog-ui
+      dockerfile: Dockerfile.dev
+    env_file: $UI_ENV_FILE
+    volumes:
+      - ./catalog-ui/src:/app/src
+    ports:
+      - "$UI_PORT:8080"
+        # command: "yarn run serve --host demo.producelist.dev --port 8082"
+        #command: ["yarn", "run", "serve", "--host", "demo.farmstand.dev", "--port", "8082"]
+    command: ["yarn", "run", "serve", "--port", "8080"]
+
+  account:
+    build:
+      context: ./account-ui
+      dockerfile: Dockerfile.dev
+    env_file: $ACCOUNT_ENV_FILE
+    volumes:
+      - ./account-ui/src:/app/src
+    ports:
+      - "$ACCOUNT_PORT:8080"
+    command: ["yarn", "run", "serve", "--port", "8080"]
+
+  dq:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev
+    env_file: $API_ENV_FILE
+    volumes:
+      - ./api:/app
+    depends_on: [api]
+    command: ./dramatiq.sh
+    links:
+      - "redis:$REDIS_HOST"
+      - "db:$DB_HOST"
